@@ -53,6 +53,13 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "shortDescription": "先收下来，别打断当下。",
     "longDescription": "一个极简、常驻桌面的念头收件箱。",
     "category": "Productivity",
