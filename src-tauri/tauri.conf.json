@@ -1,0 +1,90 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Flashnote",
+  "version": "0.1.0",
+  "identifier": "com.flashnote.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "inbox",
+        "title": "Flashnote · 稍后看",
+        "url": "index.html?window=inbox",
+        "width": 960,
+        "height": 680,
+        "minWidth": 700,
+        "minHeight": 520,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "visible": true
+      },
+      {
+        "label": "capture",
+        "title": "快速记录",
+        "url": "index.html?window=capture",
+        "width": 420,
+        "height": 88,
+        "minWidth": 320,
+        "maxWidth": 680,
+        "minHeight": 88,
+        "maxHeight": 88,
+        "center": true,
+        "resizable": true,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "shortDescription": "先收下来，别打断当下。",
+    "longDescription": "一个极简、常驻桌面的念头收件箱。",
+    "category": "Productivity",
+    "copyright": "Copyright © 2026 Flashnote contributors",
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "signingIdentity": "-",
+      "dmg": {
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 190
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 190
+        }
+      }
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false,
+        "languages": ["SimpChinese", "English"]
+      },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      }
+    }
+  }
+}

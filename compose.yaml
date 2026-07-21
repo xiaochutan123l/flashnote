@@ -1,0 +1,44 @@
+services:
+  format:
+    build:
+      context: .
+      target: toolchain
+    image: flashnote-toolchain:local
+    volumes:
+      - .:/workspace
+    command:
+      - cargo
+      - fmt
+      - --manifest-path
+      - src-tauri/Cargo.toml
+
+  test:
+    build:
+      context: .
+      target: test
+    image: flashnote-test:local
+
+  linux-build:
+    build:
+      context: .
+      target: linux-build
+    image: flashnote-linux-build:local
+    volumes:
+      - ./artifacts/linux:/artifacts
+    command:
+      - /bin/sh
+      - -lc
+      - cp -R /workspace/src-tauri/target/release/bundle/. /artifacts/
+
+  ui:
+    build:
+      context: .
+      target: development
+    image: flashnote-dev:local
+    ports:
+      - "1420:1420"
+      - "1421:1421"
+    volumes:
+      - ./src:/workspace/src
+      - ./index.html:/workspace/index.html
+      - ./vite.config.ts:/workspace/vite.config.ts
