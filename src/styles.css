@@ -99,7 +99,6 @@ kbd {
 }
 
 .capture-bar--saved {
-  justify-content: center;
   color: var(--teal-dark);
   border-color: rgb(19 143 123 / 24%);
   background: rgb(246 252 249 / 97%);
@@ -126,7 +125,7 @@ kbd {
   color: #929894;
 }
 
-.capture-bar button {
+.capture-bar__submit {
   flex: 0 0 auto;
   min-width: 62px;
   height: 34px;
@@ -139,19 +138,46 @@ kbd {
   cursor: pointer;
 }
 
-.capture-bar button:hover {
+.capture-bar__submit:hover {
   filter: brightness(0.96);
 }
 
-.capture-bar button:disabled {
+.capture-bar__submit:disabled {
   opacity: 0.65;
   cursor: wait;
 }
 
 .capture-bar__confirmation {
+  min-width: 0;
+  flex: 1;
   margin: 0;
+  text-align: center;
   font-size: 14px;
   font-weight: 650;
+}
+
+.capture-bar__inbox-button {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #78807b;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.capture-bar__inbox-button:hover {
+  color: var(--teal-dark);
+  background: var(--teal-soft);
+}
+
+.capture-bar__inbox-button svg {
+  width: 18px;
+  height: 18px;
 }
 
 .capture-error {
@@ -691,4 +717,3 @@ kbd {
     display: none;
   }
 }
-

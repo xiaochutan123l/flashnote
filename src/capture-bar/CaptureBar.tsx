@@ -1,6 +1,6 @@
 import { FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useServices } from "../application/services-context";
-import { SparkIcon } from "../shared/icons";
+import { InboxIcon, SparkIcon } from "../shared/icons";
 
 const HIDE_AFTER_SAVE_MS = 650;
 
@@ -29,11 +29,24 @@ export function CaptureBar() {
       setState("saved");
       window.setTimeout(async () => {
         setState("idle");
-        await desktop.hideCaptureBar();
+        const settings = await desktop.getSettings().catch(() => null);
+        if (settings?.keepCaptureBarVisible) {
+          inputRef.current?.focus();
+        } else {
+          await desktop.hideCaptureBar();
+        }
       }, HIDE_AFTER_SAVE_MS);
     } catch (cause) {
       setState("idle");
       setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  async function openInbox() {
+    const settings = await desktop.getSettings().catch(() => null);
+    await desktop.openInbox();
+    if (!settings?.keepCaptureBarVisible) {
+      await desktop.hideCaptureBar();
     }
   }
 
@@ -69,12 +82,21 @@ export function CaptureBar() {
           />
         )}
         {state !== "saved" && content.trim() ? (
-          <button type="submit" disabled={state === "saving"}>
+          <button className="capture-bar__submit" type="submit" disabled={state === "saving"}>
             {state === "saving" ? "保存中" : "收下"}
           </button>
         ) : state !== "saved" ? (
           <kbd>↵</kbd>
         ) : null}
+        <button
+          className="capture-bar__inbox-button"
+          type="button"
+          aria-label="打开稍后看"
+          title="打开稍后看"
+          onClick={() => void openInbox()}
+        >
+          <InboxIcon />
+        </button>
       </form>
       {error ? <p className="capture-error">{error}</p> : null}
     </main>

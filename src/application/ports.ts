@@ -17,6 +17,7 @@ export interface CaptureGateway {
 export interface AppSettings {
   launchAtLogin: boolean;
   shortcut: string;
+  keepCaptureBarVisible: boolean;
 }
 
 /** OS/window operations are isolated so presentation code remains testable. */
@@ -26,4 +27,5 @@ export interface DesktopGateway {
   openInbox(): Promise<void>;
   getSettings(): Promise<AppSettings>;
   setLaunchAtLogin(enabled: boolean): Promise<AppSettings>;
+  setKeepCaptureBarVisible(enabled: boolean): Promise<AppSettings>;
 }

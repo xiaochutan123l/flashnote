@@ -59,7 +59,7 @@ Platform       ──called by───> Tauri command boundary
 
 ### `src/settings`
 
-只承载桌面偏好。当前包含登录启动，未来快捷键编辑可继续放在这里，但不应进入 capture 领域。
+只承载桌面偏好。当前包含登录启动和悬浮条常驻开关，未来快捷键编辑可继续放在这里，但不应进入 capture 领域。
 
 ## 4. Rust 模块
 
@@ -87,7 +87,7 @@ Tauri IPC 边界。命令调用应用服务后统一发送 `captures://changed` 
 
 - `windows.rs`：窗口显示、隐藏和聚焦。
 - `tray.rs`：托盘菜单及退出入口。
-- `settings.rs`：登录启动等操作系统偏好。
+- `settings.rs`：组合操作系统管理的登录启动状态与应用自己的 `preferences.json` 偏好。
 
 如果以后需要更原生的 macOS `NSPanel` 或 Windows `HWND_TOPMOST` 行为，只扩展这个目录。
 
@@ -104,8 +104,10 @@ global shortcut
   -> SQLite transaction
   -> emit captures://changed
   -> inbox refresh
-  -> capture window hides
+  -> capture window 根据常驻偏好决定清空后停留或隐藏
 ```
+
+窗口配置使用 `create: false`，由 `platform::windows` 在 `AppState` 注册后统一创建。这避免 Windows 冷启动较快时，前端在共享状态注册前调用命令的竞争条件。
 
 前后端均校验是有意的：前端提供即时反馈，Rust 层是可信边界，确保其他调用者不能写入非法数据。
 

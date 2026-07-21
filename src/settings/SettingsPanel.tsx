@@ -23,6 +23,18 @@ export function SettingsPanel({ onClose }: { onClose(): void }) {
     }
   }
 
+  async function toggleKeepCaptureBarVisible() {
+    if (!settings) return;
+    try {
+      setSettings(
+        await desktop.setKeepCaptureBarVisible(!settings.keepCaptureBarVisible),
+      );
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section
@@ -41,6 +53,21 @@ export function SettingsPanel({ onClose }: { onClose(): void }) {
             ×
           </button>
         </header>
+        <div className="settings-row">
+          <div>
+            <strong>悬浮条始终显示</strong>
+            <p>保存后清空输入框并继续停留，适合固定在屏幕一角。</p>
+          </div>
+          <button
+            className={`switch ${settings?.keepCaptureBarVisible ? "is-on" : ""}`}
+            role="switch"
+            aria-checked={settings?.keepCaptureBarVisible ?? false}
+            disabled={!settings}
+            onClick={() => void toggleKeepCaptureBarVisible()}
+          >
+            <span />
+          </button>
+        </div>
         <div className="settings-row">
           <div>
             <strong>登录时启动</strong>
@@ -68,4 +95,3 @@ export function SettingsPanel({ onClose }: { onClose(): void }) {
     </div>
   );
 }
-

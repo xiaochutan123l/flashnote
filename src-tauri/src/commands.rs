@@ -131,3 +131,17 @@ pub fn get_settings(app: AppHandle) -> Result<settings::AppSettings, String> {
 pub fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<settings::AppSettings, String> {
     settings::set_launch_at_login(&app, enabled)
 }
+
+#[tauri::command]
+pub fn set_keep_capture_bar_visible(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<settings::AppSettings, String> {
+    let current = settings::set_keep_capture_bar_visible(&app, enabled)?;
+    if enabled {
+        windows::show_capture_bar(&app)?;
+    } else {
+        windows::hide_capture_bar(&app)?;
+    }
+    Ok(current)
+}

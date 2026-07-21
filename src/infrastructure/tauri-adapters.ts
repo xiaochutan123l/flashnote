@@ -58,4 +58,8 @@ export class TauriDesktopGateway implements DesktopGateway {
   setLaunchAtLogin(enabled: boolean): Promise<AppSettings> {
     return invoke("set_launch_at_login", { enabled });
   }
+
+  setKeepCaptureBarVisible(enabled: boolean): Promise<AppSettings> {
+    return invoke("set_keep_capture_bar_visible", { enabled });
+  }
 }

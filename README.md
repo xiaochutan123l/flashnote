@@ -2,11 +2,13 @@
 
 Flashnote 是一个本地优先的桌面念头收件箱。它只解决一件事：工作中出现新念头时，用全局快捷键唤出细条悬浮窗，写下一句话，按回车后立即回到当前工作。
 
-## 第一版能力
+## 当前能力
 
 - `Cmd/Ctrl + Shift + Space` 全局快捷键呼出悬浮条
-- 回车保存、Esc 取消、保存后自动隐藏
+- 回车保存、Esc 取消；可选择保存后自动隐藏或始终常驻
+- 悬浮条可直接打开“稍后看”列表
 - 系统托盘常驻，可打开悬浮条或“稍后看”
+- macOS 显示正常 Dock 图标；Windows 发布包不附带终端窗口
 - 本地 SQLite 存储，不需要账号或网络
 - 全部、未处理、已处理筛选
 - 编辑、处理、删除与撤销删除
@@ -33,6 +35,13 @@ docker compose up ui
 ```
 
 macOS 依赖 Xcode/macOS SDK，Windows 的 MSI 依赖 WiX，因此两种正式安装包由 `.github/workflows/build.yml` 中对应的原生 CI runner 构建，不能由普通 Linux Docker 镜像替代。
+
+## 使用
+
+- macOS 使用 `Cmd + Shift + Space`、Windows 使用 `Ctrl + Shift + Space` 呼出悬浮条。
+- 按回车保存，按 Esc 隐藏；点击悬浮条右侧的列表图标可打开“稍后看”。
+- 在“设置”中开启“悬浮条始终显示”后，保存只会清空输入框，不再隐藏窗口；偏好会在下次启动时恢复。
+- 关闭列表窗口只是隐藏，点击 macOS Dock 图标、Windows 任务栏图标或托盘菜单可再次打开。
 
 如果选择 Host 原生开发，则需要 Node.js 20+、Rust stable，以及各平台的 Tauri 系统依赖：
 

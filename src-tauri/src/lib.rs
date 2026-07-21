@@ -22,7 +22,7 @@ pub struct AppState {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = platform::windows::show_inbox(app);
         }))
@@ -40,12 +40,23 @@ pub fn run() {
                 captures: CaptureService::new(Arc::new(repository)),
             });
 
+            // Config-declared windows intentionally have `create: false` so
+            // no frontend command can run before the state above is managed.
+            platform::windows::create_configured_windows(app)?;
             platform::tray::install(app)?;
             install_global_shortcut(app)?;
 
-            // Accessory apps live in the menu bar without adding permanent Dock clutter.
+            // Flashnote behaves as a normal desktop app so users can keep it in
+            // the macOS Dock and reopen the inbox from its Dock icon.
             #[cfg(target_os = "macos")]
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            app.set_activation_policy(tauri::ActivationPolicy::Regular);
+
+            let settings = platform::settings::read(app.handle())
+                .map_err(Box::<dyn std::error::Error>::from)?;
+            if settings.keep_capture_bar_visible {
+                platform::windows::show_capture_bar(app.handle())
+                    .map_err(Box::<dyn std::error::Error>::from)?;
+            }
 
             Ok(())
         })
@@ -61,6 +72,7 @@ pub fn run() {
             commands::open_inbox,
             commands::get_settings,
             commands::set_launch_at_login,
+            commands::set_keep_capture_bar_visible,
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
@@ -71,8 +83,23 @@ pub fn run() {
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("failed to run Flashnote");
+        .build(tauri::generate_context!())
+        .expect("failed to build Flashnote");
+
+    app.run(|app_handle, event| {
+        // When every window is hidden, clicking the macOS Dock icon should
+        // restore the inbox instead of appearing unresponsive.
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Reopen {
+            has_visible_windows: false,
+        } = event
+        {
+            let _ = platform::windows::show_inbox(app_handle);
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        let _ = (app_handle, event);
+    });
 }
 
 fn install_global_shortcut(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {

@@ -6,7 +6,29 @@ import type {
 } from "../application/ports";
 
 const STORAGE_KEY = "flashnote.browser.captures";
+const SETTINGS_STORAGE_KEY = "flashnote.browser.settings";
 const CHANGE_EVENT = "flashnote:captures-changed";
+
+const defaultSettings: AppSettings = {
+  launchAtLogin: false,
+  shortcut: "CommandOrControl+Shift+Space",
+  keepCaptureBarVisible: false,
+};
+
+function readSettings(): AppSettings {
+  const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+  if (!raw) return defaultSettings;
+  try {
+    return { ...defaultSettings, ...(JSON.parse(raw) as Partial<AppSettings>) };
+  } catch {
+    return defaultSettings;
+  }
+}
+
+function writeSettings(settings: AppSettings): AppSettings {
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  return settings;
+}
 
 function readCaptures(): Capture[] {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -95,8 +117,6 @@ export class BrowserCaptureGateway implements CaptureGateway {
 }
 
 export class BrowserDesktopGateway implements DesktopGateway {
-  private launchAtLogin = false;
-
   async hideCaptureBar(): Promise<void> {}
 
   async showCaptureBar(): Promise<void> {
@@ -108,14 +128,17 @@ export class BrowserDesktopGateway implements DesktopGateway {
   }
 
   async getSettings(): Promise<AppSettings> {
-    return {
-      launchAtLogin: this.launchAtLogin,
-      shortcut: "CommandOrControl+Shift+Space",
-    };
+    return readSettings();
   }
 
   async setLaunchAtLogin(enabled: boolean): Promise<AppSettings> {
-    this.launchAtLogin = enabled;
-    return this.getSettings();
+    return writeSettings({ ...readSettings(), launchAtLogin: enabled });
+  }
+
+  async setKeepCaptureBarVisible(enabled: boolean): Promise<AppSettings> {
+    return writeSettings({
+      ...readSettings(),
+      keepCaptureBarVisible: enabled,
+    });
   }
 }
