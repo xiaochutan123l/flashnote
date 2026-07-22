@@ -118,6 +118,16 @@ pub fn hide_capture_bar(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn set_capture_bar_mode(app: AppHandle, mode: windows::CaptureBarMode) -> Result<(), String> {
+    windows::set_capture_bar_mode(&app, mode)
+}
+
+#[tauri::command]
+pub fn start_capture_bar_drag(app: AppHandle) -> Result<(), String> {
+    windows::start_capture_bar_drag(&app)
+}
+
+#[tauri::command]
 pub fn open_inbox(app: AppHandle) -> Result<(), String> {
     windows::show_inbox(&app)
 }

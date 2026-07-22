@@ -20,6 +20,8 @@ export interface AppSettings {
   keepCaptureBarVisible: boolean;
 }
 
+export type CaptureBarMode = "expanded" | "collapsed";
+
 /** OS/window operations are isolated so presentation code remains testable. */
 export interface DesktopGateway {
   hideCaptureBar(): Promise<void>;
@@ -28,4 +30,7 @@ export interface DesktopGateway {
   getSettings(): Promise<AppSettings>;
   setLaunchAtLogin(enabled: boolean): Promise<AppSettings>;
   setKeepCaptureBarVisible(enabled: boolean): Promise<AppSettings>;
+  setCaptureBarMode(mode: CaptureBarMode): Promise<void>;
+  startCaptureBarDrag(): Promise<void>;
+  subscribeCaptureBarActivation(listener: () => void): Promise<() => void>;
 }

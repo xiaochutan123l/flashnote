@@ -51,7 +51,7 @@ Platform       ──called by───> Tauri command boundary
 
 ### `src/capture-bar`
 
-悬浮输入条是一个独立窗口入口，只关心一次捕捉会话：聚焦、输入、保存、确认、隐藏。它不知道 SQLite 的存在。
+悬浮输入条是一个独立窗口入口，只关心一次捕捉会话：聚焦、输入、保存、折叠和隐藏。`collapse-controller.ts` 独立管理无操作计时，不依赖 React、Tauri 或 SQLite；组件只把计时状态映射为展开条或圆点。
 
 ### `src/inbox`
 
@@ -85,7 +85,7 @@ Tauri IPC 边界。命令调用应用服务后统一发送 `captures://changed` 
 
 ### `platform`
 
-- `windows.rs`：窗口显示、隐藏和聚焦。
+- `windows.rs`：窗口显示、隐藏、聚焦、原生拖动和展开/折叠尺寸切换；调整尺寸时保持中心位置并约束在当前显示器工作区内。
 - `tray.rs`：托盘菜单及退出入口。
 - `settings.rs`：组合操作系统管理的登录启动状态与应用自己的 `preferences.json` 偏好。
 
@@ -104,7 +104,10 @@ global shortcut
   -> SQLite transaction
   -> emit captures://changed
   -> inbox refresh
-  -> capture window 根据常驻偏好决定清空后停留或隐藏
+  -> 非常驻模式：短暂确认后隐藏
+  -> 常驻模式：启动 3 秒无操作计时
+  -> set_capture_bar_mode(collapsed)
+  -> mouse hover -> set_capture_bar_mode(expanded)
 ```
 
 窗口配置使用 `create: false`，由 `platform::windows` 在 `AppState` 注册后统一创建。这避免 Windows 冷启动较快时，前端在共享状态注册前调用命令的竞争条件。

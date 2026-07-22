@@ -69,6 +69,8 @@ pub fn run() {
             commands::restore_capture,
             commands::show_capture_bar,
             commands::hide_capture_bar,
+            commands::set_capture_bar_mode,
+            commands::start_capture_bar_drag,
             commands::open_inbox,
             commands::get_settings,
             commands::set_launch_at_login,

@@ -56,7 +56,7 @@ export function SettingsPanel({ onClose }: { onClose(): void }) {
         <div className="settings-row">
           <div>
             <strong>悬浮条始终显示</strong>
-            <p>保存后清空输入框并继续停留，适合固定在屏幕一角。</p>
+            <p>保存后 3 秒无操作折叠为圆点，悬停时立即展开。</p>
           </div>
           <button
             className={`switch ${settings?.keepCaptureBarVisible ? "is-on" : ""}`}

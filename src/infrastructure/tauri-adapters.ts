@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import type { Capture, CaptureFilter, CaptureStatus } from "../domain/capture";
 import type {
   AppSettings,
+  CaptureBarMode,
   CaptureGateway,
   DesktopGateway,
 } from "../application/ports";
@@ -61,5 +62,17 @@ export class TauriDesktopGateway implements DesktopGateway {
 
   setKeepCaptureBarVisible(enabled: boolean): Promise<AppSettings> {
     return invoke("set_keep_capture_bar_visible", { enabled });
+  }
+
+  setCaptureBarMode(mode: CaptureBarMode): Promise<void> {
+    return invoke("set_capture_bar_mode", { mode });
+  }
+
+  startCaptureBarDrag(): Promise<void> {
+    return invoke("start_capture_bar_drag");
+  }
+
+  subscribeCaptureBarActivation(listener: () => void): Promise<() => void> {
+    return listen("capture://activated", listener);
   }
 }

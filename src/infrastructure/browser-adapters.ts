@@ -1,6 +1,7 @@
 import type { Capture, CaptureFilter, CaptureStatus } from "../domain/capture";
 import type {
   AppSettings,
+  CaptureBarMode,
   CaptureGateway,
   DesktopGateway,
 } from "../application/ports";
@@ -140,5 +141,15 @@ export class BrowserDesktopGateway implements DesktopGateway {
       ...readSettings(),
       keepCaptureBarVisible: enabled,
     });
+  }
+
+  async setCaptureBarMode(mode: CaptureBarMode): Promise<void> {
+    document.documentElement.dataset.captureMode = mode;
+  }
+
+  async startCaptureBarDrag(): Promise<void> {}
+
+  async subscribeCaptureBarActivation(): Promise<() => void> {
+    return () => undefined;
   }
 }
