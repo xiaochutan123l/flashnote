@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import type { AppSettings } from "../application/ports";
 import { useServices } from "../application/services-context";
 
+const collapseDelays = [
+  { value: 1_000, label: "1 秒" },
+  { value: 3_000, label: "3 秒" },
+  { value: 5_000, label: "5 秒" },
+  { value: 10_000, label: "10 秒" },
+];
+
 export function SettingsPanel({ onClose }: { onClose(): void }) {
   const { desktop } = useServices();
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -13,22 +20,10 @@ export function SettingsPanel({ onClose }: { onClose(): void }) {
     });
   }, [desktop]);
 
-  async function toggleLaunchAtLogin() {
+  async function updateSettings(action: () => Promise<AppSettings>) {
     if (!settings) return;
     try {
-      setSettings(await desktop.setLaunchAtLogin(!settings.launchAtLogin));
-      setError(null);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  }
-
-  async function toggleKeepCaptureBarVisible() {
-    if (!settings) return;
-    try {
-      setSettings(
-        await desktop.setKeepCaptureBarVisible(!settings.keepCaptureBarVisible),
-      );
+      setSettings(await action());
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -56,14 +51,109 @@ export function SettingsPanel({ onClose }: { onClose(): void }) {
         <div className="settings-row">
           <div>
             <strong>悬浮条始终显示</strong>
-            <p>保存后 3 秒无操作折叠为圆点，悬停时立即展开。</p>
+            <p>常驻桌面；是否折叠以及等待多久由下方设置决定。</p>
           </div>
           <button
             className={`switch ${settings?.keepCaptureBarVisible ? "is-on" : ""}`}
             role="switch"
             aria-checked={settings?.keepCaptureBarVisible ?? false}
             disabled={!settings}
-            onClick={() => void toggleKeepCaptureBarVisible()}
+            onClick={() =>
+              void updateSettings(() =>
+                desktop.setKeepCaptureBarVisible(
+                  !settings!.keepCaptureBarVisible,
+                ),
+              )
+            }
+          >
+            <span />
+          </button>
+        </div>
+        <div className="settings-row">
+          <div>
+            <strong>离开后自动折叠</strong>
+            <p>鼠标离开且输入框失焦后开始倒计时，与保存动作无关。</p>
+          </div>
+          <button
+            className={`switch ${settings?.autoCollapseCaptureBar ? "is-on" : ""}`}
+            role="switch"
+            aria-checked={settings?.autoCollapseCaptureBar ?? false}
+            disabled={!settings}
+            onClick={() =>
+              void updateSettings(() =>
+                desktop.setAutoCollapseCaptureBar(
+                  !settings!.autoCollapseCaptureBar,
+                ),
+              )
+            }
+          >
+            <span />
+          </button>
+        </div>
+        <div className="settings-row settings-row--stacked">
+          <div>
+            <strong>折叠等待时间</strong>
+            <p>重新移入或聚焦会立即取消当前倒计时。</p>
+          </div>
+          <div className="delay-options" aria-label="折叠等待时间">
+            {collapseDelays.map((delay) => (
+              <button
+                key={delay.value}
+                className={
+                  settings?.captureBarCollapseDelayMs === delay.value
+                    ? "is-active"
+                    : ""
+                }
+                disabled={!settings || !settings.autoCollapseCaptureBar}
+                onClick={() =>
+                  void updateSettings(() =>
+                    desktop.setCaptureBarCollapseDelay(delay.value),
+                  )
+                }
+              >
+                {delay.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="settings-row">
+          <div>
+            <strong>悬浮条始终置顶</strong>
+            <p>保持在其他窗口上方，需要时仍可随时关闭。</p>
+          </div>
+          <button
+            className={`switch ${settings?.captureBarAlwaysOnTop ? "is-on" : ""}`}
+            role="switch"
+            aria-checked={settings?.captureBarAlwaysOnTop ?? false}
+            disabled={!settings}
+            onClick={() =>
+              void updateSettings(() =>
+                desktop.setCaptureBarAlwaysOnTop(
+                  !settings!.captureBarAlwaysOnTop,
+                ),
+              )
+            }
+          >
+            <span />
+          </button>
+        </div>
+        <div className="settings-row">
+          <div>
+            <strong>记住悬浮条位置</strong>
+            <p>重新启动后恢复到上次拖动的位置，并自动限制在可见屏幕内。</p>
+          </div>
+          <button
+            className={`switch ${settings?.rememberCaptureBarPosition ? "is-on" : ""}`}
+            role="switch"
+            aria-checked={settings?.rememberCaptureBarPosition ?? false}
+            disabled={!settings}
+            onClick={() =>
+              void updateSettings(() =>
+                desktop.setRememberCaptureBarPosition(
+                  !settings!.rememberCaptureBarPosition,
+                ),
+              )
+            }
           >
             <span />
           </button>
@@ -78,7 +168,11 @@ export function SettingsPanel({ onClose }: { onClose(): void }) {
             role="switch"
             aria-checked={settings?.launchAtLogin ?? false}
             disabled={!settings}
-            onClick={() => void toggleLaunchAtLogin()}
+            onClick={() =>
+              void updateSettings(() =>
+                desktop.setLaunchAtLogin(!settings!.launchAtLogin),
+              )
+            }
           >
             <span />
           </button>

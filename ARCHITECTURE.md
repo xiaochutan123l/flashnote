@@ -51,7 +51,21 @@ Platform       ──called by───> Tauri command boundary
 
 ### `src/capture-bar`
 
-悬浮输入条是一个独立窗口入口，只关心一次捕捉会话：聚焦、输入、保存、折叠和隐藏。`collapse-controller.ts` 独立管理无操作计时，不依赖 React、Tauri 或 SQLite；组件只把计时状态映射为展开条或圆点。
+悬浮输入条是一个独立窗口入口，只关心一次捕捉会话：聚焦、输入、保存、折叠和隐藏。`collapse-controller.ts` 是纯 TypeScript 状态机，不依赖 React、Tauri 或 SQLite。它只接收指针、焦点和折叠策略，不接收“保存成功”事件，因此保存生命周期与窗口折叠彻底解耦。
+
+状态机规则：
+
+```text
+pointer inside OR focus within
+  -> expanded
+
+pointer outside AND focus outside AND auto collapse enabled
+  -> pending
+  -> configured delay
+  -> collapsed capsule
+```
+
+草稿属于 `CaptureBar` 会话状态。折叠只切换展示和原生窗口尺寸，不会清空草稿。
 
 ### `src/inbox`
 
@@ -59,7 +73,7 @@ Platform       ──called by───> Tauri command boundary
 
 ### `src/settings`
 
-只承载桌面偏好。当前包含登录启动和悬浮条常驻开关，未来快捷键编辑可继续放在这里，但不应进入 capture 领域。
+只承载桌面偏好。当前包含登录启动、悬浮条常驻、自动折叠、折叠延迟、置顶和位置记忆。设置通过 `settings://changed` 广播，已挂载但隐藏的捕捉窗口不需要重新创建就能应用最新策略。
 
 ## 4. Rust 模块
 
@@ -85,9 +99,9 @@ Tauri IPC 边界。命令调用应用服务后统一发送 `captures://changed` 
 
 ### `platform`
 
-- `windows.rs`：窗口显示、隐藏、聚焦、原生拖动和展开/折叠尺寸切换；调整尺寸时保持中心位置并约束在当前显示器工作区内。
+- `windows.rs`：窗口显示、隐藏、聚焦、原生拖动、置顶和展开/折叠尺寸切换；调整尺寸时保持中心位置并约束在当前显示器工作区内。
 - `tray.rs`：托盘菜单及退出入口。
-- `settings.rs`：组合操作系统管理的登录启动状态与应用自己的 `preferences.json` 偏好。
+- `settings.rs`：组合操作系统管理的登录启动状态与应用自己的 `preferences.json` 偏好；窗口位置以物理中心点保存，避免展开/折叠改变记忆锚点。
 
 如果以后需要更原生的 macOS `NSPanel` 或 Windows `HWND_TOPMOST` 行为，只扩展这个目录。
 
@@ -105,9 +119,13 @@ global shortcut
   -> emit captures://changed
   -> inbox refresh
   -> 非常驻模式：短暂确认后隐藏
-  -> 常驻模式：启动 3 秒无操作计时
-  -> set_capture_bar_mode(collapsed)
-  -> mouse hover -> set_capture_bar_mode(expanded)
+  -> 常驻模式：保持当前指针/焦点驱动的展示状态
+
+pointer leave + focus leave
+  -> configured delay
+  -> set_capture_bar_mode(collapsed capsule)
+  -> mouse enter / focus / global shortcut
+  -> set_capture_bar_mode(expanded)
 ```
 
 窗口配置使用 `create: false`，由 `platform::windows` 在 `AppState` 注册后统一创建。这避免 Windows 冷启动较快时，前端在共享状态注册前调用命令的竞争条件。

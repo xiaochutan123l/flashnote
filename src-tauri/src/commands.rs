@@ -24,6 +24,10 @@ fn changed(app: &AppHandle, id: &str, operation: &'static str) {
     );
 }
 
+fn settings_changed(app: &AppHandle) {
+    let _ = app.emit("settings://changed", ());
+}
+
 #[tauri::command]
 pub fn create_capture(
     app: AppHandle,
@@ -139,7 +143,9 @@ pub fn get_settings(app: AppHandle) -> Result<settings::AppSettings, String> {
 
 #[tauri::command]
 pub fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<settings::AppSettings, String> {
-    settings::set_launch_at_login(&app, enabled)
+    let current = settings::set_launch_at_login(&app, enabled)?;
+    settings_changed(&app);
+    Ok(current)
 }
 
 #[tauri::command]
@@ -153,5 +159,50 @@ pub fn set_keep_capture_bar_visible(
     } else {
         windows::hide_capture_bar(&app)?;
     }
+    settings_changed(&app);
+    Ok(current)
+}
+
+#[tauri::command]
+pub fn set_auto_collapse_capture_bar(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<settings::AppSettings, String> {
+    let current = settings::set_auto_collapse_capture_bar(&app, enabled)?;
+    settings_changed(&app);
+    Ok(current)
+}
+
+#[tauri::command]
+pub fn set_capture_bar_collapse_delay(
+    app: AppHandle,
+    delay_ms: u64,
+) -> Result<settings::AppSettings, String> {
+    let current = settings::set_capture_bar_collapse_delay(&app, delay_ms)?;
+    settings_changed(&app);
+    Ok(current)
+}
+
+#[tauri::command]
+pub fn set_capture_bar_always_on_top(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<settings::AppSettings, String> {
+    let current = settings::set_capture_bar_always_on_top(&app, enabled)?;
+    windows::set_capture_bar_always_on_top(&app, enabled)?;
+    settings_changed(&app);
+    Ok(current)
+}
+
+#[tauri::command]
+pub fn set_remember_capture_bar_position(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<settings::AppSettings, String> {
+    let current = settings::set_remember_capture_bar_position(&app, enabled)?;
+    if enabled {
+        windows::remember_capture_bar_position(&app)?;
+    }
+    settings_changed(&app);
     Ok(current)
 }

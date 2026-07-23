@@ -9,11 +9,16 @@ import type {
 const STORAGE_KEY = "flashnote.browser.captures";
 const SETTINGS_STORAGE_KEY = "flashnote.browser.settings";
 const CHANGE_EVENT = "flashnote:captures-changed";
+const SETTINGS_CHANGE_EVENT = "flashnote:settings-changed";
 
 const defaultSettings: AppSettings = {
   launchAtLogin: false,
   shortcut: "CommandOrControl+Shift+Space",
   keepCaptureBarVisible: false,
+  autoCollapseCaptureBar: true,
+  captureBarCollapseDelayMs: 3_000,
+  captureBarAlwaysOnTop: true,
+  rememberCaptureBarPosition: true,
 };
 
 function readSettings(): AppSettings {
@@ -28,6 +33,7 @@ function readSettings(): AppSettings {
 
 function writeSettings(settings: AppSettings): AppSettings {
   localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  window.dispatchEvent(new Event(SETTINGS_CHANGE_EVENT));
   return settings;
 }
 
@@ -143,6 +149,34 @@ export class BrowserDesktopGateway implements DesktopGateway {
     });
   }
 
+  async setAutoCollapseCaptureBar(enabled: boolean): Promise<AppSettings> {
+    return writeSettings({
+      ...readSettings(),
+      autoCollapseCaptureBar: enabled,
+    });
+  }
+
+  async setCaptureBarCollapseDelay(delayMs: number): Promise<AppSettings> {
+    return writeSettings({
+      ...readSettings(),
+      captureBarCollapseDelayMs: delayMs,
+    });
+  }
+
+  async setCaptureBarAlwaysOnTop(enabled: boolean): Promise<AppSettings> {
+    return writeSettings({
+      ...readSettings(),
+      captureBarAlwaysOnTop: enabled,
+    });
+  }
+
+  async setRememberCaptureBarPosition(enabled: boolean): Promise<AppSettings> {
+    return writeSettings({
+      ...readSettings(),
+      rememberCaptureBarPosition: enabled,
+    });
+  }
+
   async setCaptureBarMode(mode: CaptureBarMode): Promise<void> {
     document.documentElement.dataset.captureMode = mode;
   }
@@ -151,5 +185,10 @@ export class BrowserDesktopGateway implements DesktopGateway {
 
   async subscribeCaptureBarActivation(): Promise<() => void> {
     return () => undefined;
+  }
+
+  async subscribeSettingsChange(listener: () => void): Promise<() => void> {
+    window.addEventListener(SETTINGS_CHANGE_EVENT, listener);
+    return () => window.removeEventListener(SETTINGS_CHANGE_EVENT, listener);
   }
 }

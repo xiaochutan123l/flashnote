@@ -64,6 +64,22 @@ export class TauriDesktopGateway implements DesktopGateway {
     return invoke("set_keep_capture_bar_visible", { enabled });
   }
 
+  setAutoCollapseCaptureBar(enabled: boolean): Promise<AppSettings> {
+    return invoke("set_auto_collapse_capture_bar", { enabled });
+  }
+
+  setCaptureBarCollapseDelay(delayMs: number): Promise<AppSettings> {
+    return invoke("set_capture_bar_collapse_delay", { delayMs });
+  }
+
+  setCaptureBarAlwaysOnTop(enabled: boolean): Promise<AppSettings> {
+    return invoke("set_capture_bar_always_on_top", { enabled });
+  }
+
+  setRememberCaptureBarPosition(enabled: boolean): Promise<AppSettings> {
+    return invoke("set_remember_capture_bar_position", { enabled });
+  }
+
   setCaptureBarMode(mode: CaptureBarMode): Promise<void> {
     return invoke("set_capture_bar_mode", { mode });
   }
@@ -74,5 +90,9 @@ export class TauriDesktopGateway implements DesktopGateway {
 
   subscribeCaptureBarActivation(listener: () => void): Promise<() => void> {
     return listen("capture://activated", listener);
+  }
+
+  subscribeSettingsChange(listener: () => void): Promise<() => void> {
+    return listen("settings://changed", listener);
   }
 }

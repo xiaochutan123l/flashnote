@@ -1,11 +1,13 @@
 import {
   FormEvent,
+  type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
   useRef,
   useState,
 } from "react";
+import type { AppSettings } from "../application/ports";
 import { useServices } from "../application/services-context";
 import { InboxIcon, SparkIcon } from "../shared/icons";
 import {
@@ -14,6 +16,7 @@ import {
 } from "./collapse-controller";
 
 const HIDE_AFTER_SAVE_MS = 650;
+const SAVED_FEEDBACK_MS = 1_000;
 type SaveState = "idle" | "saving" | "saved";
 
 export function CaptureBar() {
@@ -23,8 +26,11 @@ export function CaptureBar() {
   const [collapsePhase, setCollapsePhase] =
     useState<CaptureCollapsePhase>("expanded");
   const [error, setError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const settingsRef = useRef<AppSettings | null>(null);
   const hideTimeoutRef = useRef<number | null>(null);
+  const feedbackTimeoutRef = useRef<number | null>(null);
   const collapseControllerRef = useRef<CaptureCollapseController | null>(null);
 
   if (!collapseControllerRef.current) {
@@ -37,6 +43,7 @@ export function CaptureBar() {
     return () => {
       collapseController.dispose();
       clearHideTimeout();
+      clearFeedbackTimeout();
     };
   }, [collapseController]);
 
@@ -50,13 +57,24 @@ export function CaptureBar() {
     let unsubscribe: (() => void) | undefined;
     let disposed = false;
 
-    void desktop.subscribeCaptureBarActivation(() => {
-      clearHideTimeout();
-      collapseController.keepExpanded();
-      setSaveState("idle");
-      setError(null);
-      window.requestAnimationFrame(() => inputRef.current?.focus());
-    }).then((stop) => {
+    async function refreshSettings() {
+      try {
+        const settings = await desktop.getSettings();
+        if (disposed) return;
+        settingsRef.current = settings;
+        collapseController.configure({
+          enabled:
+            settings.keepCaptureBarVisible &&
+            settings.autoCollapseCaptureBar,
+          delayMs: settings.captureBarCollapseDelayMs,
+        });
+      } catch (cause) {
+        if (!disposed) setError(formatError(cause));
+      }
+    }
+
+    void refreshSettings();
+    void desktop.subscribeSettingsChange(refreshSettings).then((stop) => {
       if (disposed) stop();
       else unsubscribe = stop;
     });
@@ -68,30 +86,65 @@ export function CaptureBar() {
   }, [collapseController, desktop]);
 
   useEffect(() => {
-    function handleWindowKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        clearHideTimeout();
-        collapseController.keepExpanded();
-        setContent("");
-        setError(null);
-        void desktop.hideCaptureBar();
-        return;
-      }
+    let unsubscribe: (() => void) | undefined;
+    let disposed = false;
 
-      if (saveState !== "saved") return;
-      if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
-        event.preventDefault();
-        beginNewCapture(event.key);
-      } else if (event.key === "Backspace" || event.key === "Enter") {
-        event.preventDefault();
-        beginNewCapture();
-      }
+    void desktop
+      .subscribeCaptureBarActivation(() => {
+        clearHideTimeout();
+        collapseController.forceExpanded();
+        setSaveState("idle");
+        setError(null);
+        void desktop
+          .getSettings()
+          .then((settings) => {
+            settingsRef.current = settings;
+            collapseController.configure({
+              enabled:
+                settings.keepCaptureBarVisible &&
+                settings.autoCollapseCaptureBar,
+              delayMs: settings.captureBarCollapseDelayMs,
+            });
+          })
+          .catch((cause) => setError(formatError(cause)));
+        window.requestAnimationFrame(() => inputRef.current?.focus());
+      })
+      .then((stop) => {
+        if (disposed) stop();
+        else unsubscribe = stop;
+      });
+
+    return () => {
+      disposed = true;
+      unsubscribe?.();
+    };
+  }, [collapseController, desktop]);
+
+  useEffect(() => {
+    function handleWindowKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      clearHideTimeout();
+      clearFeedbackTimeout();
+      collapseController.forceExpanded();
+      setContent("");
+      setSaveState("idle");
+      setError(null);
+      void desktop.hideCaptureBar();
     }
 
     window.addEventListener("keydown", handleWindowKeyDown);
     return () => window.removeEventListener("keydown", handleWindowKeyDown);
-  }, [collapseController, desktop, saveState]);
+  }, [collapseController, desktop]);
+
+  useEffect(() => {
+    function handleWindowBlur() {
+      collapseController.setFocusWithin(false);
+    }
+
+    window.addEventListener("blur", handleWindowBlur);
+    return () => window.removeEventListener("blur", handleWindowBlur);
+  }, [collapseController]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -99,16 +152,21 @@ export function CaptureBar() {
 
     try {
       clearHideTimeout();
-      collapseController.keepExpanded();
+      clearFeedbackTimeout();
       setSaveState("saving");
       setError(null);
       await captures.create(content);
       setContent("");
       setSaveState("saved");
+      window.requestAnimationFrame(syncFocusFromDocument);
 
-      const settings = await desktop.getSettings().catch(() => null);
+      const settings =
+        settingsRef.current ?? (await desktop.getSettings().catch(() => null));
       if (settings?.keepCaptureBarVisible) {
-        collapseController.arm();
+        feedbackTimeoutRef.current = window.setTimeout(() => {
+          feedbackTimeoutRef.current = null;
+          setSaveState("idle");
+        }, SAVED_FEEDBACK_MS);
       } else {
         hideTimeoutRef.current = window.setTimeout(() => {
           hideTimeoutRef.current = null;
@@ -117,53 +175,55 @@ export function CaptureBar() {
         }, HIDE_AFTER_SAVE_MS);
       }
     } catch (cause) {
-      collapseController.keepExpanded();
       setSaveState("idle");
       setError(formatError(cause));
     }
   }
 
-  function beginNewCapture(initialContent = "") {
-    clearHideTimeout();
-    collapseController.keepExpanded();
+  function handleContentChange(value: string) {
+    clearFeedbackTimeout();
+    setContent(value);
     setSaveState("idle");
     setError(null);
-    if (initialContent) setContent(initialContent);
-    window.requestAnimationFrame(() => inputRef.current?.focus());
-  }
-
-  function handleContentChange(value: string) {
-    setContent(value);
-    setError(null);
-    if (value) collapseController.keepExpanded();
-  }
-
-  function handlePointerDown(event: ReactPointerEvent<HTMLFormElement>) {
-    if (saveState !== "saved") return;
-    if ((event.target as Element).closest("button")) return;
-    beginNewCapture();
   }
 
   function handleInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
     if (event.key === "Escape") event.currentTarget.blur();
   }
 
-  function expandFromDot() {
-    setSaveState("idle");
-    setError(null);
-    collapseController.expandTemporarily();
+  function handleFocus(event: ReactFocusEvent<HTMLFormElement>) {
+    if (event.currentTarget.contains(event.target)) {
+      collapseController.setFocusWithin(true);
+    }
+  }
+
+  function handleBlur(event: ReactFocusEvent<HTMLFormElement>) {
+    const nextTarget = event.relatedTarget;
+    if (!nextTarget || !event.currentTarget.contains(nextTarget as Node)) {
+      collapseController.setFocusWithin(false);
+    }
+  }
+
+  function syncFocusFromDocument() {
+    collapseController.setFocusWithin(
+      Boolean(
+        formRef.current &&
+          document.activeElement &&
+          formRef.current.contains(document.activeElement),
+      ),
+    );
   }
 
   async function startDragging() {
     clearHideTimeout();
-    collapseController.keepExpanded();
-    setSaveState("idle");
+    collapseController.forceExpanded();
     setError(null);
     await desktop.startCaptureBarDrag().catch((cause) => setError(formatError(cause)));
   }
 
   async function openInbox() {
-    const settings = await desktop.getSettings().catch(() => null);
+    const settings =
+      settingsRef.current ?? (await desktop.getSettings().catch(() => null));
     await desktop.openInbox();
     if (!settings?.keepCaptureBarVisible) {
       await desktop.hideCaptureBar();
@@ -177,16 +237,26 @@ export function CaptureBar() {
     }
   }
 
+  function clearFeedbackTimeout() {
+    if (feedbackTimeoutRef.current !== null) {
+      window.clearTimeout(feedbackTimeoutRef.current);
+      feedbackTimeoutRef.current = null;
+    }
+  }
+
   if (collapsePhase === "collapsed") {
     return (
       <main className="capture-shell capture-shell--collapsed">
         <button
-          className="capture-dot"
+          className="capture-capsule"
           type="button"
           aria-label="展开快速记录"
           title="记下一个新念头"
-          onPointerEnter={expandFromDot}
-          onFocus={expandFromDot}
+          onPointerEnter={() => collapseController.setPointerInside(true)}
+          onFocus={() => {
+            collapseController.setFocusWithin(true);
+            window.requestAnimationFrame(() => inputRef.current?.focus());
+          }}
         >
           <SparkIcon aria-hidden="true" />
         </button>
@@ -197,17 +267,20 @@ export function CaptureBar() {
   return (
     <main className="capture-shell">
       <form
+        ref={formRef}
         className={`capture-bar capture-bar--${saveState}`}
         onSubmit={submit}
-        onPointerMove={() => collapseController.noteActivity()}
-        onPointerDown={handlePointerDown}
+        onPointerEnter={() => collapseController.setPointerInside(true)}
+        onPointerLeave={() => collapseController.setPointerInside(false)}
+        onFocusCapture={handleFocus}
+        onBlurCapture={handleBlur}
       >
         <button
           className="capture-bar__drag-handle"
           type="button"
           aria-label="拖动悬浮条"
           title="拖动到任意位置"
-          onPointerDown={(event) => {
+          onPointerDown={(event: ReactPointerEvent<HTMLButtonElement>) => {
             event.preventDefault();
             event.stopPropagation();
             void startDragging();
@@ -217,13 +290,14 @@ export function CaptureBar() {
         </button>
         <SparkIcon className="capture-bar__spark" aria-hidden="true" />
 
-        {saveState === "saved" ? (
-          <p className="capture-bar__confirmation">
-            <strong>已记下</strong>
-            <span>3 秒后收起</span>
-          </p>
-        ) : error ? (
-          <p className="capture-bar__inline-error" onPointerDown={() => beginNewCapture()}>
+        {error ? (
+          <p
+            className="capture-bar__inline-error"
+            onPointerDown={() => {
+              setError(null);
+              window.requestAnimationFrame(() => inputRef.current?.focus());
+            }}
+          >
             {error}
           </p>
         ) : (
@@ -232,19 +306,28 @@ export function CaptureBar() {
             value={content}
             onChange={(event) => handleContentChange(event.target.value)}
             onKeyDown={handleInputKeyDown}
-            onFocus={() => collapseController.keepExpanded()}
             maxLength={500}
-            placeholder="记下一个新念头…"
+            placeholder={
+              saveState === "saved"
+                ? "已记下，可以继续记录…"
+                : "记下一个新念头…"
+            }
             aria-label="记录念头"
             disabled={saveState === "saving"}
             spellCheck={false}
           />
         )}
 
-        {saveState !== "saved" && !error && content.trim() ? (
-          <button className="capture-bar__submit" type="submit" disabled={saveState === "saving"}>
+        {!error && content.trim() ? (
+          <button
+            className="capture-bar__submit"
+            type="submit"
+            disabled={saveState === "saving"}
+          >
             {saveState === "saving" ? "保存中" : "收下"}
           </button>
+        ) : saveState === "saved" ? (
+          <span className="capture-bar__saved-status">已记下</span>
         ) : saveState === "idle" && !error ? (
           <kbd>↵</kbd>
         ) : null}
@@ -254,7 +337,6 @@ export function CaptureBar() {
           type="button"
           aria-label="打开稍后看"
           title="打开稍后看"
-          onPointerDown={(event) => event.stopPropagation()}
           onClick={() => void openInbox()}
         >
           <InboxIcon />

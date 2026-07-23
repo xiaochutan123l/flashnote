@@ -18,6 +18,10 @@ export interface AppSettings {
   launchAtLogin: boolean;
   shortcut: string;
   keepCaptureBarVisible: boolean;
+  autoCollapseCaptureBar: boolean;
+  captureBarCollapseDelayMs: number;
+  captureBarAlwaysOnTop: boolean;
+  rememberCaptureBarPosition: boolean;
 }
 
 export type CaptureBarMode = "expanded" | "collapsed";
@@ -30,7 +34,12 @@ export interface DesktopGateway {
   getSettings(): Promise<AppSettings>;
   setLaunchAtLogin(enabled: boolean): Promise<AppSettings>;
   setKeepCaptureBarVisible(enabled: boolean): Promise<AppSettings>;
+  setAutoCollapseCaptureBar(enabled: boolean): Promise<AppSettings>;
+  setCaptureBarCollapseDelay(delayMs: number): Promise<AppSettings>;
+  setCaptureBarAlwaysOnTop(enabled: boolean): Promise<AppSettings>;
+  setRememberCaptureBarPosition(enabled: boolean): Promise<AppSettings>;
   setCaptureBarMode(mode: CaptureBarMode): Promise<void>;
   startCaptureBarDrag(): Promise<void>;
   subscribeCaptureBarActivation(listener: () => void): Promise<() => void>;
+  subscribeSettingsChange(listener: () => void): Promise<() => void>;
 }

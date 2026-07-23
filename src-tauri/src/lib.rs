@@ -53,6 +53,13 @@ pub fn run() {
 
             let settings = platform::settings::read(app.handle())
                 .map_err(Box::<dyn std::error::Error>::from)?;
+            platform::windows::set_capture_bar_always_on_top(
+                app.handle(),
+                settings.capture_bar_always_on_top,
+            )
+            .map_err(Box::<dyn std::error::Error>::from)?;
+            platform::windows::restore_capture_bar_position(app.handle())
+                .map_err(Box::<dyn std::error::Error>::from)?;
             if settings.keep_capture_bar_visible {
                 platform::windows::show_capture_bar(app.handle())
                     .map_err(Box::<dyn std::error::Error>::from)?;
@@ -75,14 +82,24 @@ pub fn run() {
             commands::get_settings,
             commands::set_launch_at_login,
             commands::set_keep_capture_bar_visible,
+            commands::set_auto_collapse_capture_bar,
+            commands::set_capture_bar_collapse_delay,
+            commands::set_capture_bar_always_on_top,
+            commands::set_remember_capture_bar_position,
         ])
         .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                // Closing a window hides it; the tray process remains ready for capture.
-                if matches!(window.label(), "inbox" | "capture") {
-                    api.prevent_close();
-                    let _ = window.hide();
+            match event {
+                WindowEvent::CloseRequested { api, .. } => {
+                    // Closing a window hides it; the tray process remains ready for capture.
+                    if matches!(window.label(), "inbox" | "capture") {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    }
                 }
+                WindowEvent::Moved(_) if window.label() == "capture" => {
+                    let _ = platform::windows::remember_capture_bar_position(window.app_handle());
+                }
+                _ => {}
             }
         })
         .build(tauri::generate_context!())

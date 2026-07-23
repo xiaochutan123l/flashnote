@@ -4,10 +4,13 @@ use tauri::{
     WebviewWindowBuilder,
 };
 
+use super::settings::{self, CaptureBarPosition};
+
 const CAPTURE_WINDOW_LABEL: &str = "capture";
 const CAPTURE_EXPANDED_WIDTH: f64 = 432.0;
 const CAPTURE_EXPANDED_HEIGHT: f64 = 64.0;
-const CAPTURE_COLLAPSED_SIZE: f64 = 52.0;
+const CAPTURE_COLLAPSED_WIDTH: f64 = 56.0;
+const CAPTURE_COLLAPSED_HEIGHT: f64 = 40.0;
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -60,6 +63,79 @@ pub fn start_capture_bar_drag(app: &AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
+pub fn set_capture_bar_always_on_top(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    capture_window(app)?
+        .set_always_on_top(enabled)
+        .map_err(|error| error.to_string())
+}
+
+/** Restores the persisted center point and clamps it to an available work area. */
+pub fn restore_capture_bar_position(app: &AppHandle) -> Result<(), String> {
+    let Some(saved) = settings::capture_bar_position(app)? else {
+        return Ok(());
+    };
+    let window = capture_window(app)?;
+    let size = window.outer_size().map_err(|error| error.to_string())?;
+    let proposed_x = i64::from(saved.center_x) - i64::from(size.width) / 2;
+    let proposed_y = i64::from(saved.center_y) - i64::from(size.height) / 2;
+
+    let monitors = window
+        .available_monitors()
+        .map_err(|error| error.to_string())?;
+    let selected = monitors
+        .iter()
+        .find(|monitor| {
+            let work_area = monitor.work_area();
+            let left = i64::from(work_area.position.x);
+            let top = i64::from(work_area.position.y);
+            let right = left + i64::from(work_area.size.width);
+            let bottom = top + i64::from(work_area.size.height);
+            let x = i64::from(saved.center_x);
+            let y = i64::from(saved.center_y);
+            x >= left && x < right && y >= top && y < bottom
+        })
+        .or_else(|| monitors.first());
+
+    let position = match selected {
+        Some(monitor) => {
+            let work_area = monitor.work_area();
+            PhysicalPosition::new(
+                clamp_axis(
+                    proposed_x,
+                    work_area.position.x,
+                    work_area.size.width,
+                    size.width,
+                ),
+                clamp_axis(
+                    proposed_y,
+                    work_area.position.y,
+                    work_area.size.height,
+                    size.height,
+                ),
+            )
+        }
+        None => PhysicalPosition::new(clamp_i32(proposed_x), clamp_i32(proposed_y)),
+    };
+
+    window
+        .set_position(position)
+        .map_err(|error| error.to_string())
+}
+
+/** Persists the window center so resizing never changes its remembered anchor. */
+pub fn remember_capture_bar_position(app: &AppHandle) -> Result<(), String> {
+    let window = capture_window(app)?;
+    let size = window.outer_size().map_err(|error| error.to_string())?;
+    let position = window.outer_position().map_err(|error| error.to_string())?;
+    settings::remember_capture_bar_position(
+        app,
+        CaptureBarPosition {
+            center_x: clamp_i32(i64::from(position.x) + i64::from(size.width) / 2),
+            center_y: clamp_i32(i64::from(position.y) + i64::from(size.height) / 2),
+        },
+    )
+}
+
 pub fn show_inbox(app: &AppHandle) -> Result<(), String> {
     let window = app
         .get_webview_window("inbox")
@@ -86,7 +162,7 @@ fn resize_capture_bar(window: &WebviewWindow, mode: CaptureBarMode) -> Result<()
             LogicalSize::new(CAPTURE_EXPANDED_WIDTH, CAPTURE_EXPANDED_HEIGHT)
         }
         CaptureBarMode::Collapsed => {
-            LogicalSize::new(CAPTURE_COLLAPSED_SIZE, CAPTURE_COLLAPSED_SIZE)
+            LogicalSize::new(CAPTURE_COLLAPSED_WIDTH, CAPTURE_COLLAPSED_HEIGHT)
         }
     };
 
@@ -153,6 +229,6 @@ mod tests {
 
     #[test]
     fn work_areas_smaller_than_the_window_anchor_at_their_origin() {
-        assert_eq!(clamp_axis(200, -100, 40, 52), -100);
+        assert_eq!(clamp_axis(200, -100, 40, 56), -100);
     }
 }
