@@ -65,3 +65,48 @@ export function EditIcon(props: IconProps) {
   );
 }
 
+export function TodayIcon(props: IconProps) {
+  return (
+    <svg {...defaults} {...props}>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M16 3v4M8 3v4M3 10h18" />
+      <circle cx="12" cy="15" r="2.2" />
+    </svg>
+  );
+}
+
+export function PlanIcon(props: IconProps) {
+  return (
+    <svg {...defaults} {...props}>
+      <path d="M9 6h12M9 12h12M9 18h12" />
+      <circle cx="4.5" cy="6" r="1.5" />
+      <circle cx="4.5" cy="12" r="1.5" />
+      <circle cx="4.5" cy="18" r="1.5" />
+    </svg>
+  );
+}
+
+export function HistoryIcon(props: IconProps) {
+  return (
+    <svg {...defaults} {...props}>
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+export function PlusIcon(props: IconProps) {
+  return (
+    <svg {...defaults} {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+export function ChevronIcon(props: IconProps) {
+  return (
+    <svg {...defaults} {...props}>
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}

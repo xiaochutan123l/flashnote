@@ -11,10 +11,22 @@ const CAPTURE_EXPANDED_WIDTH: f64 = 432.0;
 const CAPTURE_EXPANDED_HEIGHT: f64 = 64.0;
 const CAPTURE_COLLAPSED_WIDTH: f64 = 56.0;
 const CAPTURE_COLLAPSED_HEIGHT: f64 = 40.0;
+const FOCUS_WINDOW_LABEL: &str = "focus";
+const FOCUS_EXPANDED_WIDTH: f64 = 360.0;
+const FOCUS_EXPANDED_HEIGHT: f64 = 340.0;
+const FOCUS_COLLAPSED_WIDTH: f64 = 360.0;
+const FOCUS_COLLAPSED_HEIGHT: f64 = 68.0;
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CaptureBarMode {
+    Expanded,
+    Collapsed,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FocusWindowMode {
     Expanded,
     Collapsed,
 }
@@ -24,7 +36,7 @@ pub enum CaptureBarMode {
  *
  * Tauri normally creates config-declared windows before the setup hook. Fast
  * Windows machines can then invoke commands before `AppState` exists. The
- * config marks both windows with `create: false`, and this function restores
+ * config marks every window with `create: false`, and this function restores
  * them after setup has registered every command dependency.
  */
 pub fn create_configured_windows(app: &mut App) -> tauri::Result<()> {
@@ -69,12 +81,164 @@ pub fn set_capture_bar_always_on_top(app: &AppHandle, enabled: bool) -> Result<(
         .map_err(|error| error.to_string())
 }
 
+pub fn show_focus_window(app: &AppHandle) -> Result<(), String> {
+    let window = focus_window(app)?;
+    resize_focus_window(&window, FocusWindowMode::Expanded)?;
+    window.show().map_err(|error| error.to_string())?;
+    window.set_focus().map_err(|error| error.to_string())?;
+    app.emit_to(FOCUS_WINDOW_LABEL, "focus://activated", ())
+        .map_err(|error| error.to_string())
+}
+
+pub fn hide_focus_window(app: &AppHandle) -> Result<(), String> {
+    focus_window(app)?.hide().map_err(|error| error.to_string())
+}
+
+pub fn set_focus_window_mode(app: &AppHandle, mode: FocusWindowMode) -> Result<(), String> {
+    resize_focus_window(&focus_window(app)?, mode)
+}
+
+pub fn start_focus_window_drag(app: &AppHandle) -> Result<(), String> {
+    focus_window(app)?
+        .start_dragging()
+        .map_err(|error| error.to_string())
+}
+
 /** Restores the persisted center point and clamps it to an available work area. */
 pub fn restore_capture_bar_position(app: &AppHandle) -> Result<(), String> {
     let Some(saved) = settings::capture_bar_position(app)? else {
         return Ok(());
     };
+    restore_position(&capture_window(app)?, saved)
+}
+
+pub fn restore_focus_window_position(app: &AppHandle) -> Result<(), String> {
+    let Some(saved) = settings::focus_window_position(app)? else {
+        return Ok(());
+    };
+    restore_position(&focus_window(app)?, saved)
+}
+
+/** Persists the window center so resizing never changes its remembered anchor. */
+pub fn remember_capture_bar_position(app: &AppHandle) -> Result<(), String> {
     let window = capture_window(app)?;
+    settings::remember_capture_bar_position(app, window_center(&window)?)
+}
+
+pub fn remember_focus_window_position(app: &AppHandle) -> Result<(), String> {
+    let window = focus_window(app)?;
+    let position = window_center(&window)?;
+    settings::remember_focus_window_position(app, position)
+}
+
+pub fn show_inbox(app: &AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("inbox")
+        .ok_or_else(|| "找不到稍后看窗口".to_string())?;
+    window.unminimize().map_err(|error| error.to_string())?;
+    window.show().map_err(|error| error.to_string())?;
+    window.set_focus().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+pub fn open_main_view(app: &AppHandle, view: &str) -> Result<(), String> {
+    if !matches!(view, "inbox" | "today" | "plans" | "history") {
+        return Err("未知的主界面".into());
+    }
+    show_inbox(app)?;
+    app.emit_to("inbox", "main://navigate", view)
+        .map_err(|error| error.to_string())
+}
+
+fn capture_window(app: &AppHandle) -> Result<WebviewWindow, String> {
+    app.get_webview_window(CAPTURE_WINDOW_LABEL)
+        .ok_or_else(|| "找不到悬浮记录窗口".to_string())
+}
+
+fn focus_window(app: &AppHandle) -> Result<WebviewWindow, String> {
+    app.get_webview_window(FOCUS_WINDOW_LABEL)
+        .ok_or_else(|| "找不到今日专注浮窗".to_string())
+}
+
+/**
+ * Resizes around the current center and clamps the result to the monitor work
+ * area. Center anchoring prevents the dot from jumping to an unrelated screen
+ * position, while clamping keeps the expanded bar reachable near screen edges.
+ */
+fn resize_capture_bar(window: &WebviewWindow, mode: CaptureBarMode) -> Result<(), String> {
+    let target = match mode {
+        CaptureBarMode::Expanded => {
+            LogicalSize::new(CAPTURE_EXPANDED_WIDTH, CAPTURE_EXPANDED_HEIGHT)
+        }
+        CaptureBarMode::Collapsed => {
+            LogicalSize::new(CAPTURE_COLLAPSED_WIDTH, CAPTURE_COLLAPSED_HEIGHT)
+        }
+    };
+
+    resize_around_center(window, target)
+}
+
+fn resize_focus_window(window: &WebviewWindow, mode: FocusWindowMode) -> Result<(), String> {
+    let target = match mode {
+        FocusWindowMode::Expanded => LogicalSize::new(FOCUS_EXPANDED_WIDTH, FOCUS_EXPANDED_HEIGHT),
+        FocusWindowMode::Collapsed => {
+            LogicalSize::new(FOCUS_COLLAPSED_WIDTH, FOCUS_COLLAPSED_HEIGHT)
+        }
+    };
+    resize_around_center(window, target)
+}
+
+fn resize_around_center(window: &WebviewWindow, target: LogicalSize<f64>) -> Result<(), String> {
+    let scale_factor = window.scale_factor().map_err(|error| error.to_string())?;
+    let target_physical = target.to_physical::<u32>(scale_factor);
+    let current_size = window.outer_size().map_err(|error| error.to_string())?;
+    let current_position = window.outer_position().map_err(|error| error.to_string())?;
+
+    let proposed_x = i64::from(current_position.x)
+        + (i64::from(current_size.width) - i64::from(target_physical.width)) / 2;
+    let proposed_y = i64::from(current_position.y)
+        + (i64::from(current_size.height) - i64::from(target_physical.height)) / 2;
+
+    let position = match window
+        .current_monitor()
+        .map_err(|error| error.to_string())?
+    {
+        Some(monitor) => {
+            let work_area = monitor.work_area();
+            PhysicalPosition::new(
+                clamp_axis(
+                    proposed_x,
+                    work_area.position.x,
+                    work_area.size.width,
+                    target_physical.width,
+                ),
+                clamp_axis(
+                    proposed_y,
+                    work_area.position.y,
+                    work_area.size.height,
+                    target_physical.height,
+                ),
+            )
+        }
+        None => PhysicalPosition::new(clamp_i32(proposed_x), clamp_i32(proposed_y)),
+    };
+
+    window.set_size(target).map_err(|error| error.to_string())?;
+    window
+        .set_position(position)
+        .map_err(|error| error.to_string())
+}
+
+fn window_center(window: &WebviewWindow) -> Result<CaptureBarPosition, String> {
+    let size = window.outer_size().map_err(|error| error.to_string())?;
+    let position = window.outer_position().map_err(|error| error.to_string())?;
+    Ok(CaptureBarPosition {
+        center_x: clamp_i32(i64::from(position.x) + i64::from(size.width) / 2),
+        center_y: clamp_i32(i64::from(position.y) + i64::from(size.height) / 2),
+    })
+}
+
+fn restore_position(window: &WebviewWindow, saved: CaptureBarPosition) -> Result<(), String> {
     let size = window.outer_size().map_err(|error| error.to_string())?;
     let proposed_x = i64::from(saved.center_x) - i64::from(size.width) / 2;
     let proposed_y = i64::from(saved.center_y) - i64::from(size.height) / 2;
@@ -117,90 +281,6 @@ pub fn restore_capture_bar_position(app: &AppHandle) -> Result<(), String> {
         None => PhysicalPosition::new(clamp_i32(proposed_x), clamp_i32(proposed_y)),
     };
 
-    window
-        .set_position(position)
-        .map_err(|error| error.to_string())
-}
-
-/** Persists the window center so resizing never changes its remembered anchor. */
-pub fn remember_capture_bar_position(app: &AppHandle) -> Result<(), String> {
-    let window = capture_window(app)?;
-    let size = window.outer_size().map_err(|error| error.to_string())?;
-    let position = window.outer_position().map_err(|error| error.to_string())?;
-    settings::remember_capture_bar_position(
-        app,
-        CaptureBarPosition {
-            center_x: clamp_i32(i64::from(position.x) + i64::from(size.width) / 2),
-            center_y: clamp_i32(i64::from(position.y) + i64::from(size.height) / 2),
-        },
-    )
-}
-
-pub fn show_inbox(app: &AppHandle) -> Result<(), String> {
-    let window = app
-        .get_webview_window("inbox")
-        .ok_or_else(|| "找不到稍后看窗口".to_string())?;
-    window.unminimize().map_err(|error| error.to_string())?;
-    window.show().map_err(|error| error.to_string())?;
-    window.set_focus().map_err(|error| error.to_string())?;
-    Ok(())
-}
-
-fn capture_window(app: &AppHandle) -> Result<WebviewWindow, String> {
-    app.get_webview_window(CAPTURE_WINDOW_LABEL)
-        .ok_or_else(|| "找不到悬浮记录窗口".to_string())
-}
-
-/**
- * Resizes around the current center and clamps the result to the monitor work
- * area. Center anchoring prevents the dot from jumping to an unrelated screen
- * position, while clamping keeps the expanded bar reachable near screen edges.
- */
-fn resize_capture_bar(window: &WebviewWindow, mode: CaptureBarMode) -> Result<(), String> {
-    let target = match mode {
-        CaptureBarMode::Expanded => {
-            LogicalSize::new(CAPTURE_EXPANDED_WIDTH, CAPTURE_EXPANDED_HEIGHT)
-        }
-        CaptureBarMode::Collapsed => {
-            LogicalSize::new(CAPTURE_COLLAPSED_WIDTH, CAPTURE_COLLAPSED_HEIGHT)
-        }
-    };
-
-    let scale_factor = window.scale_factor().map_err(|error| error.to_string())?;
-    let target_physical = target.to_physical::<u32>(scale_factor);
-    let current_size = window.outer_size().map_err(|error| error.to_string())?;
-    let current_position = window.outer_position().map_err(|error| error.to_string())?;
-
-    let proposed_x = i64::from(current_position.x)
-        + (i64::from(current_size.width) - i64::from(target_physical.width)) / 2;
-    let proposed_y = i64::from(current_position.y)
-        + (i64::from(current_size.height) - i64::from(target_physical.height)) / 2;
-
-    let position = match window
-        .current_monitor()
-        .map_err(|error| error.to_string())?
-    {
-        Some(monitor) => {
-            let work_area = monitor.work_area();
-            PhysicalPosition::new(
-                clamp_axis(
-                    proposed_x,
-                    work_area.position.x,
-                    work_area.size.width,
-                    target_physical.width,
-                ),
-                clamp_axis(
-                    proposed_y,
-                    work_area.position.y,
-                    work_area.size.height,
-                    target_physical.height,
-                ),
-            )
-        }
-        None => PhysicalPosition::new(clamp_i32(proposed_x), clamp_i32(proposed_y)),
-    };
-
-    window.set_size(target).map_err(|error| error.to_string())?;
     window
         .set_position(position)
         .map_err(|error| error.to_string())

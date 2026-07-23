@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Capture, CaptureFilter } from "../domain/capture";
 import { useServices } from "../application/services-context";
-import { InboxIcon, SettingsIcon, SparkIcon } from "../shared/icons";
-import { SettingsPanel } from "../settings/SettingsPanel";
+import { SparkIcon } from "../shared/icons";
 import { CaptureRow } from "./CaptureRow";
 import { useCaptures } from "./use-captures";
 
@@ -15,7 +14,6 @@ const filters: Array<{ value: CaptureFilter; label: string }> = [
 export function InboxPage() {
   const { captures: captureService, desktop } = useServices();
   const [filter, setFilter] = useState<CaptureFilter>("all");
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; undo?: () => void } | null>(null);
   const { captures, loading, error, refresh } = useCaptures(filter);
 
@@ -53,23 +51,8 @@ export function InboxPage() {
   }
 
   return (
-    <main className="inbox-layout">
-      <aside className="sidebar">
-        <div className="brand" aria-label="Flashnote">
-          <SparkIcon />
-        </div>
-        <button className="sidebar-item is-active">
-          <InboxIcon />
-          稍后看
-        </button>
-        <div className="sidebar-spacer" />
-        <button className="sidebar-item" onClick={() => setSettingsOpen(true)}>
-          <SettingsIcon />
-          设置
-        </button>
-      </aside>
-
-      <section className="inbox-content">
+    <>
+      <section className="main-content">
         <header className="inbox-header">
           <div>
             <p className="eyebrow">念头收件箱</p>
@@ -121,13 +104,12 @@ export function InboxPage() {
         </div>
       </section>
 
-      {settingsOpen ? <SettingsPanel onClose={() => setSettingsOpen(false)} /> : null}
       {toast ? (
         <div className="toast" role="status">
           {toast.message}
           {toast.undo ? <button onClick={toast.undo}>撤销</button> : null}
         </div>
       ) : null}
-    </main>
+    </>
   );
 }

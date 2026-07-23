@@ -11,9 +11,9 @@ import type { AppSettings } from "../application/ports";
 import { useServices } from "../application/services-context";
 import { InboxIcon, SparkIcon } from "../shared/icons";
 import {
-  CaptureCollapseController,
-  type CaptureCollapsePhase,
-} from "./collapse-controller";
+  IdleCollapseController,
+  type IdleCollapsePhase,
+} from "../shared/idle-collapse-controller";
 
 const HIDE_AFTER_SAVE_MS = 650;
 const SAVED_FEEDBACK_MS = 1_000;
@@ -24,17 +24,17 @@ export function CaptureBar() {
   const [content, setContent] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [collapsePhase, setCollapsePhase] =
-    useState<CaptureCollapsePhase>("expanded");
+    useState<IdleCollapsePhase>("expanded");
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const settingsRef = useRef<AppSettings | null>(null);
   const hideTimeoutRef = useRef<number | null>(null);
   const feedbackTimeoutRef = useRef<number | null>(null);
-  const collapseControllerRef = useRef<CaptureCollapseController | null>(null);
+  const collapseControllerRef = useRef<IdleCollapseController | null>(null);
 
   if (!collapseControllerRef.current) {
-    collapseControllerRef.current = new CaptureCollapseController(setCollapsePhase);
+    collapseControllerRef.current = new IdleCollapseController(setCollapsePhase);
   }
   const collapseController = collapseControllerRef.current;
 

@@ -7,8 +7,9 @@ mod platform;
 
 use std::{fs, sync::Arc};
 
-use application::capture_service::CaptureService;
+use application::{capture_service::CaptureService, planning_service::PlanningService};
 use infrastructure::sqlite_capture_repository::SqliteCaptureRepository;
+use infrastructure::sqlite_planning_repository::SqlitePlanningRepository;
 use tauri::{Manager, WindowEvent};
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
@@ -18,6 +19,7 @@ pub const SHORTCUT_LABEL: &str = "CommandOrControl+Shift+Space";
 /** Shared application state contains use-case services, never raw database handles. */
 pub struct AppState {
     pub captures: CaptureService,
+    pub planning: PlanningService,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -36,8 +38,12 @@ pub fn run() {
             fs::create_dir_all(&data_dir)?;
             let repository = SqliteCaptureRepository::open(&data_dir.join("flashnote.sqlite3"))
                 .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?;
+            let planning_repository =
+                SqlitePlanningRepository::open(&data_dir.join("flashnote.sqlite3"))
+                    .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?;
             app.manage(AppState {
                 captures: CaptureService::new(Arc::new(repository)),
+                planning: PlanningService::new(Arc::new(planning_repository)),
             });
 
             // Config-declared windows intentionally have `create: false` so
@@ -60,8 +66,14 @@ pub fn run() {
             .map_err(Box::<dyn std::error::Error>::from)?;
             platform::windows::restore_capture_bar_position(app.handle())
                 .map_err(Box::<dyn std::error::Error>::from)?;
+            platform::windows::restore_focus_window_position(app.handle())
+                .map_err(Box::<dyn std::error::Error>::from)?;
             if settings.keep_capture_bar_visible {
                 platform::windows::show_capture_bar(app.handle())
+                    .map_err(Box::<dyn std::error::Error>::from)?;
+            }
+            if settings.keep_focus_window_visible {
+                platform::windows::show_focus_window(app.handle())
                     .map_err(Box::<dyn std::error::Error>::from)?;
             }
 
@@ -74,11 +86,29 @@ pub fn run() {
             commands::set_capture_status,
             commands::delete_capture,
             commands::restore_capture,
+            commands::create_plan_item,
+            commands::list_plan_items,
+            commands::update_plan_item,
+            commands::set_plan_item_completed,
+            commands::delete_plan_item,
+            commands::add_plan_item_to_day,
+            commands::list_focus_items,
+            commands::set_current_focus_item,
+            commands::set_focus_item_completed,
+            commands::remove_focus_item,
+            commands::get_daily_note,
+            commands::save_daily_note,
+            commands::list_daily_records,
             commands::show_capture_bar,
             commands::hide_capture_bar,
             commands::set_capture_bar_mode,
             commands::start_capture_bar_drag,
+            commands::show_focus_window,
+            commands::hide_focus_window,
+            commands::set_focus_window_mode,
+            commands::start_focus_window_drag,
             commands::open_inbox,
+            commands::open_main_view,
             commands::get_settings,
             commands::set_launch_at_login,
             commands::set_keep_capture_bar_visible,
@@ -86,18 +116,23 @@ pub fn run() {
             commands::set_capture_bar_collapse_delay,
             commands::set_capture_bar_always_on_top,
             commands::set_remember_capture_bar_position,
+            commands::set_keep_focus_window_visible,
+            commands::set_auto_collapse_focus_window,
         ])
         .on_window_event(|window, event| {
             match event {
                 WindowEvent::CloseRequested { api, .. } => {
                     // Closing a window hides it; the tray process remains ready for capture.
-                    if matches!(window.label(), "inbox" | "capture") {
+                    if matches!(window.label(), "inbox" | "capture" | "focus") {
                         api.prevent_close();
                         let _ = window.hide();
                     }
                 }
                 WindowEvent::Moved(_) if window.label() == "capture" => {
                     let _ = platform::windows::remember_capture_bar_position(window.app_handle());
+                }
+                WindowEvent::Moved(_) if window.label() == "focus" => {
+                    let _ = platform::windows::remember_focus_window_position(window.app_handle());
                 }
                 _ => {}
             }

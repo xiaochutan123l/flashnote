@@ -1,36 +1,35 @@
-export const DEFAULT_CAPTURE_COLLAPSE_DELAY_MS = 3_000;
+export const DEFAULT_IDLE_COLLAPSE_DELAY_MS = 3_000;
 
-export type CaptureCollapsePhase = "expanded" | "pending" | "collapsed";
+export type IdleCollapsePhase = "expanded" | "pending" | "collapsed";
 
-export interface CaptureCollapsePolicy {
+export interface IdleCollapsePolicy {
   enabled: boolean;
   delayMs: number;
 }
 
 /**
- * Owns the capture bar's pointer/focus-driven collapse state machine.
+ * Owns the pointer/focus-driven state shared by lightweight desktop windows.
  *
- * Saving is intentionally absent from this controller. A persistent capture
- * bar collapses only when the pointer is outside and none of its controls has
- * focus. This keeps persistence, capture submission, and window presentation
- * independent from one another.
+ * Business actions are intentionally absent. A window collapses only when the
+ * pointer is outside and none of its controls has focus, keeping persistence
+ * and presentation independent.
  */
-export class CaptureCollapseController {
+export class IdleCollapseController {
   private timeout: ReturnType<typeof setTimeout> | null = null;
-  private phase: CaptureCollapsePhase = "expanded";
+  private phase: IdleCollapsePhase = "expanded";
   private pointerInside = false;
   private focusWithin = false;
-  private policy: CaptureCollapsePolicy = {
+  private policy: IdleCollapsePolicy = {
     enabled: false,
-    delayMs: DEFAULT_CAPTURE_COLLAPSE_DELAY_MS,
+    delayMs: DEFAULT_IDLE_COLLAPSE_DELAY_MS,
   };
 
   constructor(
-    private readonly onChange: (phase: CaptureCollapsePhase) => void,
+    private readonly onChange: (phase: IdleCollapsePhase) => void,
   ) {}
 
   /** Applies persisted preferences and immediately reconciles the UI state. */
-  configure(policy: CaptureCollapsePolicy): void {
+  configure(policy: IdleCollapsePolicy): void {
     const nextPolicy = {
       enabled: policy.enabled,
       delayMs: normalizeDelay(policy.delayMs),
@@ -49,7 +48,7 @@ export class CaptureCollapseController {
     this.reconcile();
   }
 
-  /** Keyboard/input focus protects the bar from collapsing while it is in use. */
+  /** Keyboard/input focus protects the window from collapsing while in use. */
   setFocusWithin(focusWithin: boolean): void {
     this.focusWithin = focusWithin;
     this.reconcile();
@@ -105,7 +104,7 @@ export class CaptureCollapseController {
     }
   }
 
-  private setPhase(phase: CaptureCollapsePhase): void {
+  private setPhase(phase: IdleCollapsePhase): void {
     if (this.phase === phase) return;
     this.phase = phase;
     this.onChange(phase);
@@ -113,6 +112,6 @@ export class CaptureCollapseController {
 }
 
 function normalizeDelay(delayMs: number): number {
-  if (!Number.isFinite(delayMs)) return DEFAULT_CAPTURE_COLLAPSE_DELAY_MS;
+  if (!Number.isFinite(delayMs)) return DEFAULT_IDLE_COLLAPSE_DELAY_MS;
   return Math.max(0, Math.round(delayMs));
 }

@@ -1,6 +1,6 @@
 [package]
 name = "flashnote"
-version = "1.0.0"
+version = "2.0.0"
 description = "A minimal, local-first thought inbox"
 authors = ["Flashnote contributors"]
 edition = "2021"

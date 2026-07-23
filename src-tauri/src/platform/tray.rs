@@ -4,13 +4,15 @@ use tauri::{
     App,
 };
 
-use super::windows::{show_capture_bar, show_inbox};
+use super::windows::{open_main_view, show_capture_bar, show_focus_window, show_inbox};
 
 pub fn install(app: &App) -> tauri::Result<()> {
     let record = MenuItem::with_id(app, "record", "快速记录", true, None::<&str>)?;
     let inbox = MenuItem::with_id(app, "inbox", "打开稍后看", true, None::<&str>)?;
+    let today = MenuItem::with_id(app, "today", "打开今日专注", true, None::<&str>)?;
+    let focus = MenuItem::with_id(app, "focus", "显示今日专注浮窗", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&record, &inbox, &quit])?;
+    let menu = Menu::with_items(app, &[&record, &inbox, &today, &focus, &quit])?;
 
     let mut builder = TrayIconBuilder::new()
         .menu(&menu)
@@ -22,6 +24,12 @@ pub fn install(app: &App) -> tauri::Result<()> {
             }
             "inbox" => {
                 let _ = show_inbox(app);
+            }
+            "today" => {
+                let _ = open_main_view(app, "today");
+            }
+            "focus" => {
+                let _ = show_focus_window(app);
             }
             "quit" => app.exit(0),
             _ => {}

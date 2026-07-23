@@ -1,4 +1,10 @@
 import type { Capture, CaptureFilter, CaptureStatus } from "../domain/capture";
+import type {
+  DailyNote,
+  DailyRecord,
+  FocusItem,
+  PlanItem,
+} from "../domain/planning";
 
 /**
  * Port implemented by the Tauri adapter in production and an in-browser adapter
@@ -14,6 +20,23 @@ export interface CaptureGateway {
   subscribe(listener: () => void): Promise<() => void>;
 }
 
+export interface PlanningGateway {
+  createPlanItem(title: string, parentId: string | null): Promise<PlanItem>;
+  listPlanItems(): Promise<PlanItem[]>;
+  updatePlanItem(id: string, title: string): Promise<PlanItem>;
+  setPlanItemCompleted(id: string, completed: boolean): Promise<PlanItem>;
+  deletePlanItem(id: string): Promise<void>;
+  addPlanItemToDay(planItemId: string, day: string): Promise<FocusItem>;
+  listFocusItems(day: string): Promise<FocusItem[]>;
+  setCurrentFocusItem(id: string): Promise<FocusItem>;
+  setFocusItemCompleted(id: string, completed: boolean): Promise<FocusItem>;
+  removeFocusItem(id: string): Promise<void>;
+  getDailyNote(day: string): Promise<DailyNote | null>;
+  saveDailyNote(day: string, content: string): Promise<DailyNote | null>;
+  listDailyRecords(): Promise<DailyRecord[]>;
+  subscribe(listener: () => void): Promise<() => void>;
+}
+
 export interface AppSettings {
   launchAtLogin: boolean;
   shortcut: string;
@@ -22,9 +45,13 @@ export interface AppSettings {
   captureBarCollapseDelayMs: number;
   captureBarAlwaysOnTop: boolean;
   rememberCaptureBarPosition: boolean;
+  keepFocusWindowVisible: boolean;
+  autoCollapseFocusWindow: boolean;
 }
 
 export type CaptureBarMode = "expanded" | "collapsed";
+export type FocusWindowMode = "expanded" | "collapsed";
+export type MainView = "inbox" | "today" | "plans" | "history";
 
 /** OS/window operations are isolated so presentation code remains testable. */
 export interface DesktopGateway {
@@ -40,6 +67,15 @@ export interface DesktopGateway {
   setRememberCaptureBarPosition(enabled: boolean): Promise<AppSettings>;
   setCaptureBarMode(mode: CaptureBarMode): Promise<void>;
   startCaptureBarDrag(): Promise<void>;
+  showFocusWindow(): Promise<void>;
+  hideFocusWindow(): Promise<void>;
+  setFocusWindowMode(mode: FocusWindowMode): Promise<void>;
+  startFocusWindowDrag(): Promise<void>;
+  openMainView(view: MainView): Promise<void>;
+  setKeepFocusWindowVisible(enabled: boolean): Promise<AppSettings>;
+  setAutoCollapseFocusWindow(enabled: boolean): Promise<AppSettings>;
   subscribeCaptureBarActivation(listener: () => void): Promise<() => void>;
+  subscribeFocusWindowActivation(listener: () => void): Promise<() => void>;
+  subscribeMainNavigation(listener: (view: MainView) => void): Promise<() => void>;
   subscribeSettingsChange(listener: () => void): Promise<() => void>;
 }

@@ -1,17 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CaptureCollapseController } from "./collapse-controller";
+import { IdleCollapseController } from "./idle-collapse-controller";
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
 function persistentController(phases: string[], delayMs = 3_000) {
-  const controller = new CaptureCollapseController((phase) => phases.push(phase));
+  const controller = new IdleCollapseController((phase) => phases.push(phase));
   controller.configure({ enabled: true, delayMs });
   return controller;
 }
 
-describe("CaptureCollapseController", () => {
+describe("IdleCollapseController", () => {
   it("collapses after pointer and focus are both outside for the configured delay", () => {
     vi.useFakeTimers();
     const phases: string[] = [];
@@ -58,7 +58,7 @@ describe("CaptureCollapseController", () => {
   it("does not collapse when the preference is disabled", () => {
     vi.useFakeTimers();
     const phases: string[] = [];
-    const controller = new CaptureCollapseController((phase) => phases.push(phase));
+    const controller = new IdleCollapseController((phase) => phases.push(phase));
 
     controller.configure({ enabled: false, delayMs: 1_000 });
     vi.advanceTimersByTime(10_000);

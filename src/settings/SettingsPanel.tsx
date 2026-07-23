@@ -92,8 +92,8 @@ export function SettingsPanel({ onClose }: { onClose(): void }) {
         </div>
         <div className="settings-row settings-row--stacked">
           <div>
-            <strong>折叠等待时间</strong>
-            <p>重新移入或聚焦会立即取消当前倒计时。</p>
+            <strong>浮窗折叠等待时间</strong>
+            <p>同时用于灵感悬浮条和今日专注浮窗；重新移入会取消倒计时。</p>
           </div>
           <div className="delay-options" aria-label="折叠等待时间">
             {collapseDelays.map((delay) => (
@@ -104,7 +104,11 @@ export function SettingsPanel({ onClose }: { onClose(): void }) {
                     ? "is-active"
                     : ""
                 }
-                disabled={!settings || !settings.autoCollapseCaptureBar}
+                disabled={
+                  !settings ||
+                  (!settings.autoCollapseCaptureBar &&
+                    !settings.autoCollapseFocusWindow)
+                }
                 onClick={() =>
                   void updateSettings(() =>
                     desktop.setCaptureBarCollapseDelay(delay.value),
@@ -139,8 +143,50 @@ export function SettingsPanel({ onClose }: { onClose(): void }) {
         </div>
         <div className="settings-row">
           <div>
-            <strong>记住悬浮条位置</strong>
-            <p>重新启动后恢复到上次拖动的位置，并自动限制在可见屏幕内。</p>
+            <strong>今日专注浮窗始终显示</strong>
+            <p>启动后恢复今日专注浮窗，随时看见当前要回到的事情。</p>
+          </div>
+          <button
+            className={`switch ${settings?.keepFocusWindowVisible ? "is-on" : ""}`}
+            role="switch"
+            aria-checked={settings?.keepFocusWindowVisible ?? false}
+            disabled={!settings}
+            onClick={() =>
+              void updateSettings(() =>
+                desktop.setKeepFocusWindowVisible(
+                  !settings!.keepFocusWindowVisible,
+                ),
+              )
+            }
+          >
+            <span />
+          </button>
+        </div>
+        <div className="settings-row">
+          <div>
+            <strong>今日专注离开后折叠</strong>
+            <p>鼠标和键盘焦点离开后，只显示当前专注条目。</p>
+          </div>
+          <button
+            className={`switch ${settings?.autoCollapseFocusWindow ? "is-on" : ""}`}
+            role="switch"
+            aria-checked={settings?.autoCollapseFocusWindow ?? false}
+            disabled={!settings}
+            onClick={() =>
+              void updateSettings(() =>
+                desktop.setAutoCollapseFocusWindow(
+                  !settings!.autoCollapseFocusWindow,
+                ),
+              )
+            }
+          >
+            <span />
+          </button>
+        </div>
+        <div className="settings-row">
+          <div>
+            <strong>记住浮窗位置</strong>
+            <p>重新启动后恢复灵感条和今日专注的位置，并限制在可见屏幕内。</p>
           </div>
           <button
             className={`switch ${settings?.rememberCaptureBarPosition ? "is-on" : ""}`}

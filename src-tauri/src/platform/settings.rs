@@ -27,6 +27,9 @@ struct Preferences {
     capture_bar_always_on_top: bool,
     remember_capture_bar_position: bool,
     capture_bar_position: Option<CaptureBarPosition>,
+    keep_focus_window_visible: bool,
+    auto_collapse_focus_window: bool,
+    focus_window_position: Option<CaptureBarPosition>,
 }
 
 impl Default for Preferences {
@@ -38,6 +41,9 @@ impl Default for Preferences {
             capture_bar_always_on_top: true,
             remember_capture_bar_position: true,
             capture_bar_position: None,
+            keep_focus_window_visible: false,
+            auto_collapse_focus_window: true,
+            focus_window_position: None,
         }
     }
 }
@@ -52,6 +58,8 @@ pub struct AppSettings {
     pub capture_bar_collapse_delay_ms: u64,
     pub capture_bar_always_on_top: bool,
     pub remember_capture_bar_position: bool,
+    pub keep_focus_window_visible: bool,
+    pub auto_collapse_focus_window: bool,
 }
 
 pub fn read(app: &AppHandle) -> Result<AppSettings, String> {
@@ -67,6 +75,8 @@ pub fn read(app: &AppHandle) -> Result<AppSettings, String> {
         capture_bar_collapse_delay_ms: preferences.capture_bar_collapse_delay_ms,
         capture_bar_always_on_top: preferences.capture_bar_always_on_top,
         remember_capture_bar_position: preferences.remember_capture_bar_position,
+        keep_focus_window_visible: preferences.keep_focus_window_visible,
+        auto_collapse_focus_window: preferences.auto_collapse_focus_window,
     })
 }
 
@@ -133,6 +143,26 @@ pub fn set_remember_capture_bar_position(
     })
 }
 
+pub fn set_keep_focus_window_visible(
+    app: &AppHandle,
+    enabled: bool,
+) -> Result<AppSettings, String> {
+    update_preferences(app, |preferences| {
+        preferences.keep_focus_window_visible = enabled;
+        Ok(())
+    })
+}
+
+pub fn set_auto_collapse_focus_window(
+    app: &AppHandle,
+    enabled: bool,
+) -> Result<AppSettings, String> {
+    update_preferences(app, |preferences| {
+        preferences.auto_collapse_focus_window = enabled;
+        Ok(())
+    })
+}
+
 pub fn capture_bar_position(app: &AppHandle) -> Result<Option<CaptureBarPosition>, String> {
     let preferences = read_preferences(app)?;
     if preferences.remember_capture_bar_position {
@@ -151,6 +181,27 @@ pub fn remember_capture_bar_position(
         return Ok(());
     }
     preferences.capture_bar_position = Some(position);
+    write_preferences(app, &preferences)
+}
+
+pub fn focus_window_position(app: &AppHandle) -> Result<Option<CaptureBarPosition>, String> {
+    let preferences = read_preferences(app)?;
+    if preferences.remember_capture_bar_position {
+        Ok(preferences.focus_window_position)
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn remember_focus_window_position(
+    app: &AppHandle,
+    position: CaptureBarPosition,
+) -> Result<(), String> {
+    let mut preferences = read_preferences(app)?;
+    if !preferences.remember_capture_bar_position {
+        return Ok(());
+    }
+    preferences.focus_window_position = Some(position);
     write_preferences(app, &preferences)
 }
 
@@ -208,5 +259,8 @@ mod tests {
         assert!(preferences.capture_bar_always_on_top);
         assert!(preferences.remember_capture_bar_position);
         assert!(preferences.capture_bar_position.is_none());
+        assert!(!preferences.keep_focus_window_visible);
+        assert!(preferences.auto_collapse_focus_window);
+        assert!(preferences.focus_window_position.is_none());
     }
 }

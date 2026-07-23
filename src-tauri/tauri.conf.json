@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Flashnote",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "identifier": "com.flashnote.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -48,6 +48,28 @@
         "skipTaskbar": true,
         "visible": false,
         "fullscreen": false
+      },
+      {
+        "label": "focus",
+        "create": false,
+        "title": "今日专注",
+        "url": "index.html?window=focus",
+        "width": 360,
+        "height": 340,
+        "minWidth": 360,
+        "maxWidth": 360,
+        "minHeight": 68,
+        "maxHeight": 340,
+        "center": true,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "backgroundColor": "#00000000",
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "fullscreen": false
       }
     ],
     "security": {
@@ -65,7 +87,7 @@
       "icons/icon.ico"
     ],
     "shortDescription": "先收下来，别打断当下。",
-    "longDescription": "一个极简、常驻桌面的念头收件箱。",
+    "longDescription": "一个本地优先的灵感收件箱、长期计划与今日专注工具。",
     "category": "Productivity",
     "copyright": "Copyright © 2026 Flashnote contributors",
     "macOS": {
